@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<env:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+  <env:Body>
+    <n1:logout env:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
+        xmlns:n1="urn:ContactService">
+      <token xsi:type="xsd:string">{{.}}</token>
+    </n1:logout>
+  </env:Body>
+</env:Envelope>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<env:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+  <env:Body>
+    <n1:login env:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"
+        xmlns:n1="urn:ContactService">
+      <user xsi:type="xsd:string">{{.Login}}</user>
+      <pass xsi:type="xsd:string">{{.Password}}</pass>
+      <login_options xmlns:n2="https://api.yieldmanager.com/types"
+          xsi:type="n2:login_options">
+        <errors_level xsi:type="n2:enum_errors_level">throw_errors</errors_level>
+        <use_master_db xsi:nil="true"></use_master_db>
+        <language_code xsi:nil="true"></language_code>
+        <multiple_sessions xsi:type="xsd:boolean">true</multiple_sessions>
+      </login_options>
+    </n1:login>
+  </env:Body>
+</env:Envelope>
