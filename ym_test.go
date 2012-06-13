@@ -1,4 +1,4 @@
-package main
+package ym
 
 import (
   "testing"
@@ -39,6 +39,11 @@ var cred = Auth{Login: "???", Password: "???", Env: "test"}
     // } 
   // })
 // }
+
+func TestManualClose(*testing.T) {
+	Verbose = true
+	ManualClose("26b4c714d2879ac98543dbac2de76b8a")
+}
 
 func TestLineItemGetByInsertionOrder(*testing.T) {
   Verbose = true
