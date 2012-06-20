@@ -43,7 +43,6 @@ func init() {
 	layoutTemplate, err = template.New("Layout").Parse(layoutXml)
 	if err != nil { panic(err) }
 	templatePath = strings.Split(os.Getenv("GOPATH"), ":")[0] + "/src/github.com/KarateCode/ym/"
-	println(templatePath)
 }
 
 func Session(cred Auth, work func()) {
@@ -124,43 +123,15 @@ func AssembleTemplate(bodyXml string, data interface{}) *bytes.Buffer {
 	return buffer
 }
 
-// figure out how to do ym.lineItemService.GetByInsertionOrder
-// Parse xml results
-// return proper values
-// possible write structs for proprietary objects like line_item
-func LineItemServiceGetByInsertionOrder(insertionOrderId, entriesOnPage, pageNum int) ([]map[string]string, int) {
-	type Data struct {
-		Token string
-		InsertionOrderId int
-		EntriesOnPage int
-		PageNum int
+func checkConnection() {
+	if token == "" {
+		panic(errors.New("No valid token. Did you forget to open a session?"))
 	}
-	
-	bodyXml := `{{define "Body"}}<n1:getByInsertionOrder env:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:n1="urn:LineItemService">
-		<token xsi:type="xsd:string">{{.Token}}</token>
-		<insertion_order_id xsi:type="xsd:long">{{.InsertionOrderId}}</insertion_order_id>
-		<entries_on_page xsi:type="xsd:long">{{.EntriesOnPage}}</entries_on_page>
-		<page_num xsi:type="xsd:long">{{.PageNum}}</page_num>
-		</n1:getByInsertionOrder>{{end}}`
-
-    
-	buffer := AssembleTemplate(bodyXml, Data{Token:token, InsertionOrderId:insertionOrderId, EntriesOnPage:entriesOnPage, PageNum:pageNum})
-	
-	req, err := http.NewRequest("POST", credentials.url + "line_item.php", buffer)
-	if err != nil {
-		println("error creating request")
-		panic(err)
-	}
-	res, error := http.DefaultClient.Do(req)  
-	if error != nil {
-		println("error posting adhoc report")
-		panic(error)
-	}
-	io.Copy(os.Stdout, res.Body)  
-	return nil, 0
 }
 
 func ComplexReport(requestXml string) (*ReportData, error) {
+	checkConnection()
+	
 	type Data struct {
 		Token string
 		XmlString string
@@ -185,37 +156,56 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 	type RequestViaXml struct {
 		XMLName xml.Name
 		Body struct {
-			XMLName xml.Name
+			XMLName  xml.Name
 			Innerxml string "innerxml"
 			Fault struct {
-				XMLName xml.Name `xml:"Fault"`
-				Faultstring string `xml:"faultstring"`
+				XMLName     xml.Name `xml:"Fault"`
+				Faultstring string   `xml:"faultstring"`
 			} 
 			RequestViaXMLResponse struct {
-				XMLName xml.Name `xml:"requestViaXMLResponse"`
-				Token string `xml:"token"`
-				ReportToken string `xml:"report_token"`
+				XMLName     xml.Name `xml:"requestViaXMLResponse"`
+				Token       string   `xml:"token"`
+				ReportToken string   `xml:"report_token"`
 			}
 		}
 	}
 	requestViaXml := new(RequestViaXml)
 	p, readErr := ioutil.ReadAll(res.Body)
-	if readErr != nil { return nil, readErr }
+	if readErr != nil { 
+		panic(readErr)
+		// return nil, readErr 
+	}
 	
-	error = xml.Unmarshal(p, requestViaXml)
-	if error != nil { return nil, readErr }
+	errUnmarshall := xml.Unmarshal(p, requestViaXml)
+	// if error != nil { return nil, readErr }
+	if errUnmarshall != nil {
+		panic(errUnmarshall)
+	}
 	
 	// println(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
-	reportUrl, err := Status(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
-	println(reportUrl)
-	if error != nil { return nil, readErr }
+	retries := 0
+	var reportUrl string
+	for retries < 6 {
+		reportUrl, err = Status(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
+		// println("reportUrl:", reportUrl)
+		if err != nil {
+			panic(err)
+			// return nil, readErr
+		}
+		if reportUrl != "" {
+			break
+		}
+	}
 	
 	downloadReq, downloadErr := http.NewRequest("GET", reportUrl, nil)
-	if downloadErr != nil { return nil, downloadErr }
+	if downloadErr != nil { 
+		// return nil, downloadErr 
+		panic(downloadErr)
+	}
 		
-	downloadRes, error := http.DefaultClient.Do(downloadReq)  
-	if error != nil {
-		panic(error)
+	downloadRes, errGet := http.DefaultClient.Do(downloadReq)  
+	if errGet != nil {
+		panic(errGet)
 	}
 	defer downloadRes.Body.Close()
 	
@@ -234,10 +224,16 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 	
 	ioData := new(IoData)
 	p, readErr = ioutil.ReadAll(downloadRes.Body)
-	if readErr != nil { return nil, readErr }
+	if readErr != nil { 
+		// return nil, readErr 
+		panic(readErr)
+	}
 	
-	error = xml.Unmarshal(p, ioData)
-	if error != nil { return nil, error }
+	errUnmarshall = xml.Unmarshal(p, ioData)
+	if errUnmarshall != nil { 
+		// return nil, errUnmarshall 
+		panic(errUnmarshall)
+	}
 	
 	return &ioData.Response.Data.RData, nil
 }
@@ -322,4 +318,5 @@ func ManualClose(manualToken string) {
 		println("\n** Logged out **")
 		io.Copy(os.Stdout, res.Body)  
 	}
+	token = ""
 }
