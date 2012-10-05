@@ -24,9 +24,11 @@ type Auth struct {
   Login, Password, Env, url string
 }
 
-type ReportData []struct {
-	COLUMN []string `xml:"COLUMN"`
+type Column []string
+type Row struct {
+	Column Column `xml:"COLUMN"`
 }
+type ReportData []Row
 
 var layoutXml = `<?xml version="1.0" encoding="utf-8" ?>
 <env:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -203,15 +205,6 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 		panic(downloadErr)
 	}
 		
-	downloadRes, errGet := http.DefaultClient.Do(downloadReq)  
-	if errGet != nil {
-		panic(errGet)
-	}
-	defer downloadRes.Body.Close()
-	
-	// io.Copy(os.Stdout, downloadRes.Body)  
-	// return nil, nil
-	
 	type IoData struct {
 		Response struct {
 			XMLName xml.Name `xml:"RESPONSE"`
@@ -222,17 +215,36 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 		}
 	}
 	
+	retries = 0
 	ioData := new(IoData)
-	p, readErr = ioutil.ReadAll(downloadRes.Body)
-	if readErr != nil { 
-		// return nil, readErr 
-		panic(readErr)
-	}
-	
-	errUnmarshall = xml.Unmarshal(p, ioData)
-	if errUnmarshall != nil { 
-		// return nil, errUnmarshall 
-		panic(errUnmarshall)
+	for retries < 6 {
+		downloadRes, errGet := http.DefaultClient.Do(downloadReq)  
+		if errGet != nil {
+			panic(errGet)
+		}
+		defer downloadRes.Body.Close()
+		
+		// io.Copy(os.Stdout, downloadRes.Body)  
+		// return nil, nil
+		
+		p, readErr = ioutil.ReadAll(downloadRes.Body)
+		if readErr != nil { 
+			// return nil, readErr 
+			panic(readErr)
+		}
+		
+		errUnmarshall = xml.Unmarshal(p, ioData)
+		if errUnmarshall != nil { 
+			// return nil, errUnmarshall 
+			println("\n", reportUrl, "\n")
+			println(string(p))
+			retries += 1
+			if retries >= 6 {
+				panic(errUnmarshall)
+			}
+		} else {
+			break
+		}
 	}
 	
 	return &ioData.Response.Data.RData, nil

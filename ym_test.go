@@ -50,7 +50,7 @@ func TestLineItemGetByInsertionOrder(*testing.T) {
   Open(cred)
   defer Close()
   
-  LineItemServiceGetByInsertionOrder(1185043, 5000, 0)
+  LineItemService.GetByInsertionOrder(1185043, 5000, 0)
   // if (len(token) < 10) {
     // panic("Invalid token. Not logged in")
   // } 
