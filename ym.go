@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"errors"
+	"time"
 	"strings"
 )
 
@@ -19,6 +20,7 @@ var Verbose bool = false
 var credentials Auth
 var templatePath string
 var reportRoot string
+var version = "1.35"
 
 type Auth struct {
   Login, Password, Env, url string
@@ -57,10 +59,10 @@ func Open(cred Auth) error {
 	credentials = cred
   
 	if credentials.Env == "test" {
-		credentials.url = "https://api-test.yieldmanager.com/api-1.33/"
+		credentials.url = "https://api-test.yieldmanager.com/api-" + version + "/"
 		reportRoot = "https://api-test.yieldmanager.com/reports/"
 	} else {
-		credentials.url = "https://api.yieldmanager.com/api-1.33/"
+		credentials.url = "https://api.yieldmanager.com/api-" + version + "/"
 		reportRoot = "https://api.yieldmanager.com/reports/"
 	}
   
@@ -145,15 +147,18 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 		</n1:requestViaXML>{{end}}`
 
 	buffer := AssembleTemplate(bodyXml, Data{Token:token, XmlString:html.EscapeString(requestXml)})
-	// io.Copy(os.Stdout, buffer)  
+	// io.Copy(os.Stdout, buffer)
+	// println(credentials.url + "report.php")
 	req, err := http.NewRequest("POST", credentials.url + "report.php", buffer)
 	if err != nil {
 		panic(err)
 	}
-	res, error := http.DefaultClient.Do(req)  
+	res, error := http.DefaultClient.Do(req)
 	if error != nil {
 		panic(error)
 	}
+	
+	// io.Copy(os.Stdout, res.Body)
 	
 	type RequestViaXml struct {
 		XMLName xml.Name
@@ -189,14 +194,18 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 	var reportUrl string
 	for retries < 6 {
 		reportUrl, err = Status(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
-		// println("reportUrl:", reportUrl)
+		println("reportUrl:", reportUrl)
 		if err != nil {
 			panic(err)
 			// return nil, readErr
 		}
-		if reportUrl != "" {
+		if reportUrl != "" && reportUrl != "https://api-test.yieldmanager.com/reports/" {
 			break
 		}
+		println("sleeping")
+		time.Sleep(15 * time.Second)
+		println("reattempting")
+		// retries += 1
 	}
 	
 	downloadReq, downloadErr := http.NewRequest("GET", reportUrl, nil)
@@ -238,6 +247,9 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 			// return nil, errUnmarshall 
 			println("\n", reportUrl, "\n")
 			println(string(p))
+			println("sleeping")
+			time.Sleep(15 * time.Second)
+			println("reattempting")
 			retries += 1
 			if retries >= 6 {
 				panic(errUnmarshall)
@@ -275,7 +287,7 @@ func Status(reportToken string) (string, error) {
 	}
 	
 	// io.Copy(os.Stdout, res.Body)  
-	// return nil, 0
+	// return "", nil
 	
 	type Status struct {
 		XMLName xml.Name
@@ -309,9 +321,9 @@ func Close() {
   
 func ManualClose(manualToken string) {
 	if credentials.Env == "test" {
-		credentials.url = "https://api-test.yieldmanager.com/api-1.33/"
+		credentials.url = "https://api-test.yieldmanager.com/api-" + version + "/"
 	} else {
-		credentials.url = "https://api.yieldmanager.com/api-1.33/"
+		credentials.url = "https://api.yieldmanager.com/api-" + version + "/"
 	}
 	
 	tmpl, err := template.ParseFiles(templatePath + "templates/contact/logout.xml")
