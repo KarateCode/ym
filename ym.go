@@ -133,7 +133,7 @@ func checkConnection() {
 	}
 }
 
-func ComplexReport(requestXml string) (*ReportData, error) {
+func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 	checkConnection()
 	
 	type Data struct {
@@ -188,13 +188,16 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 	if errUnmarshall != nil {
 		panic(errUnmarshall)
 	}
-	
+	if len(requestViaXml.Body.Fault.Faultstring) > 0 {
+		return nil, nil, errors.New(requestViaXml.Body.Fault.Faultstring)
+	}
+
+
 	// println(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
 	retries := 0
 	var reportUrl string
 	for retries < 6 {
 		reportUrl, err = Status(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
-		println("reportUrl:", reportUrl)
 		if err != nil {
 			panic(err)
 			// return nil, readErr
@@ -202,10 +205,11 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 		if reportUrl != "" && reportUrl != "https://api-test.yieldmanager.com/reports/" {
 			break
 		}
+		println("reportUrl:", reportUrl)
 		println("sleeping")
 		time.Sleep(15 * time.Second)
 		println("reattempting")
-		// retries += 1
+		retries += 1
 	}
 	
 	downloadReq, downloadErr := http.NewRequest("GET", reportUrl, nil)
@@ -219,6 +223,8 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 			XMLName xml.Name `xml:"RESPONSE"`
 			Data struct {
 				XMLName xml.Name `xml:"DATA"`
+
+				Header Row `xml:"HEADER"`
 				RData ReportData `xml:"ROW"`
 			}
 		}
@@ -233,7 +239,7 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 		}
 		defer downloadRes.Body.Close()
 		
-		// io.Copy(os.Stdout, downloadRes.Body)  
+		// io.Copy(os.Stdout, downloadRes.Body)
 		// return nil, nil
 		
 		p, readErr = ioutil.ReadAll(downloadRes.Body)
@@ -248,6 +254,7 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 			println("\n", reportUrl, "\n")
 			println(string(p))
 			println("sleeping")
+			println(errUnmarshall.Error())
 			time.Sleep(15 * time.Second)
 			println("reattempting")
 			retries += 1
@@ -259,7 +266,8 @@ func ComplexReport(requestXml string) (*ReportData, error) {
 		}
 	}
 	
-	return &ioData.Response.Data.RData, nil
+	// fmt.Printf("Header: %+v\n", ioData.Response.Data.Header)
+	return &ioData.Response.Data.RData, &ioData.Response.Data.Header, nil
 }
 
 func Status(reportToken string) (string, error) {
@@ -312,6 +320,10 @@ func Status(reportToken string) (string, error) {
 	error = xml.Unmarshal(p, status)
 	if error != nil { return "", error }
 	
+	if len(status.Body.Fault.Faultstring) > 0 {
+		return "", errors.New(status.Body.Fault.Faultstring)
+	}
+
 	return status.Body.StatusResponse.UrlReport, nil
 }
 
