@@ -285,7 +285,7 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 		}
 	}
 
-	fmt.Printf("Header: %+v\n", ioData.Response.Data)
+	// fmt.Printf("Header: %+v\n", ioData.Response.Data)
 	return &ioData.Response.Data.RData, &ioData.Response.Data.Header, nil
 }
 
