@@ -42,7 +42,7 @@ var cred = Auth{Login: "???", Password: "???", Env: "test"}
 
 func TestManualClose(*testing.T) {
 	Verbose = true
-	ManualClose("57e3dd641dbbb0e11f42b886acd8fc7d")
+	ManualClose("2ba2d298f264393ec976d6e94944133d")
 }
 
 func TestLineItemGetByInsertionOrder(*testing.T) {

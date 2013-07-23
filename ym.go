@@ -8,12 +8,55 @@ import (
 	"html"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strings"
 	"text/template"
 	"time"
 )
+
+type Config struct {
+	ConnectTimeout   time.Duration
+	ReadWriteTimeout time.Duration
+}
+
+func TimeoutDialer(config *Config) func(net, addr string) (c net.Conn, err error) {
+	return func(netw, addr string) (net.Conn, error) {
+		conn, err := net.DialTimeout(netw, addr, config.ConnectTimeout)
+		if err != nil {
+			return nil, err
+		}
+		conn.SetDeadline(time.Now().Add(config.ReadWriteTimeout))
+		return conn, nil
+	}
+}
+
+func NewTimeoutClient(args ...interface{}) *http.Client {
+	// Default configuration
+	config := &Config{
+		ConnectTimeout:   1 * time.Second,
+		ReadWriteTimeout: 1 * time.Second,
+	}
+
+	// merge the default with user input if there is one
+	if len(args) == 1 {
+		timeout := args[0].(time.Duration)
+		config.ConnectTimeout = timeout
+		config.ReadWriteTimeout = timeout
+	}
+
+	if len(args) == 2 {
+		config.ConnectTimeout = args[0].(time.Duration)
+		config.ReadWriteTimeout = args[1].(time.Duration)
+	}
+
+	return &http.Client{
+		Transport: &http.Transport{
+			Dial: TimeoutDialer(config),
+		},
+	}
+}
 
 var token string
 var Verbose bool = false
@@ -173,9 +216,34 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 	if err != nil {
 		panic(err)
 	}
-	res, error := http.DefaultClient.Do(req)
-	if error != nil {
-		panic(error)
+	// client := http.DefaultClient
+
+	retries := 0
+	var res *http.Response
+	for retries < 20 {
+		client := NewTimeoutClient(500*time.Millisecond, 10*time.Minute)
+		res, err = client.Do(req)
+		if err != nil {
+			if retries >= 6 {
+				panic(err)
+			}
+		} else {
+			break
+		}
+
+		// reportUrl, err = Status(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
+		// if err != nil {
+		// 	panic(err)
+		// 	// return nil, readErr
+		// }
+		// if reportUrl != "" && reportUrl != "https://api-test.yieldmanager.com/reports/" {
+		// 	break
+		// }
+		// println("reportUrl:", reportUrl)
+		// println("sleeping ", retries)
+		time.Sleep(30 * time.Second)
+		// println("reattempting ", requestViaXml.Body.RequestViaXMLResponse.ReportToken)
+		retries += 1
 	}
 
 	// io.Copy(os.Stdout, res.Body)
@@ -213,7 +281,7 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 	}
 
 	// println(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
-	retries := 0
+	retries = 0
 	var reportUrl string
 	for retries < 20 {
 		reportUrl, err = Status(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
@@ -252,36 +320,42 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 	retries = 0
 	ioData := new(IoData)
 	for retries < 6 {
-		downloadRes, errGet := http.DefaultClient.Do(downloadReq)
+		client := NewTimeoutClient(500*time.Millisecond, 10*time.Minute)
+		// client := http.DefaultClient
+		downloadRes, errGet := client.Do(downloadReq)
 		if errGet != nil {
-			panic(errGet)
-		}
-		defer downloadRes.Body.Close()
-
-		// io.Copy(os.Stdout, downloadRes.Body)
-		// return nil, nil
-
-		p, readErr = ioutil.ReadAll(downloadRes.Body)
-		if readErr != nil {
-			// return nil, readErr 
-			panic(readErr)
-		}
-
-		errUnmarshall = xml.Unmarshal(p, ioData)
-		if errUnmarshall != nil {
-			// return nil, errUnmarshall 
-			println("\n", reportUrl, "\n")
-			println(string(p))
-			println("sleeping")
-			println(errUnmarshall.Error())
+			if retries > 6 {
+				panic(errGet)
+			}
 			time.Sleep(15 * time.Second)
 			println("reattempting")
-			retries += 1
-			if retries >= 6 {
-				panic(errUnmarshall)
-			}
 		} else {
-			break
+			defer downloadRes.Body.Close()
+			// io.Copy(os.Stdout, downloadRes.Body)
+			// return nil, nil
+
+			p, readErr = ioutil.ReadAll(downloadRes.Body)
+			if readErr != nil {
+				// return nil, readErr 
+				panic(readErr)
+			}
+
+			errUnmarshall = xml.Unmarshal(p, ioData)
+			if errUnmarshall != nil {
+				// return nil, errUnmarshall 
+				println("\n", reportUrl, "\n")
+				println(string(p))
+				println("sleeping")
+				println(errUnmarshall.Error())
+				time.Sleep(15 * time.Second)
+				println("reattempting")
+				retries += 1
+				if retries >= 6 {
+					panic(errUnmarshall)
+				}
+			} else {
+				break
+			}
 		}
 	}
 
