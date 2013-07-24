@@ -383,7 +383,9 @@ func Status(reportToken string) (string, error) {
 	}
 	client := NewTimeoutClient(500*time.Millisecond, 10*time.Minute)
 	// client := http.DefaultClient
+	println("Attempting Status check")
 	res, error := client.Do(req)
+	println("Status check response back")
 	if error != nil {
 		println("error posting adhoc report")
 		panic(error)
