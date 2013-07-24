@@ -224,6 +224,7 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 		client := NewTimeoutClient(500*time.Millisecond, 10*time.Minute)
 		res, err = client.Do(req)
 		if err != nil {
+			fmt.Printf("err: %+v\n", err)
 			if retries >= 6 {
 				panic(err)
 			}
@@ -277,6 +278,7 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 		panic(errUnmarshall)
 	}
 	if len(requestViaXml.Body.Fault.Faultstring) > 0 {
+		println(requestViaXml.Body.Fault.Faultstring)
 		return nil, nil, errors.New(requestViaXml.Body.Fault.Faultstring)
 	}
 
@@ -285,6 +287,7 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 	var reportUrl string
 	for retries < 20 {
 		reportUrl, err = Status(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
+		println("back from Status function")
 		if err != nil {
 			panic(err)
 			// return nil, readErr
@@ -298,6 +301,7 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 		println("reattempting ", requestViaXml.Body.RequestViaXMLResponse.ReportToken)
 		retries += 1
 	}
+	println("outside loop")
 
 	downloadReq, downloadErr := http.NewRequest("GET", reportUrl, nil)
 	if downloadErr != nil {
@@ -411,6 +415,7 @@ func Status(reportToken string) (string, error) {
 		}
 	}
 	status := new(Status)
+	println("Status body read")
 	p, readErr := ioutil.ReadAll(res.Body)
 	if readErr != nil {
 		return "", readErr
