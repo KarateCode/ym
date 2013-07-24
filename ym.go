@@ -381,7 +381,9 @@ func Status(reportToken string) (string, error) {
 		println("error creating request")
 		panic(err)
 	}
-	res, error := http.DefaultClient.Do(req)
+	client := NewTimeoutClient(500*time.Millisecond, 10*time.Minute)
+	// client := http.DefaultClient
+	res, error := client.Do(req)
 	if error != nil {
 		println("error posting adhoc report")
 		panic(error)
