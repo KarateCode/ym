@@ -289,16 +289,16 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 		reportUrl, err = Status(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
 		println("back from Status function")
 		if err != nil {
-			panic(err)
+			// panic(err)
+			fmt.Printf("err: %+v\n", err)
 			// return nil, readErr
-		}
-		if reportUrl != "" && reportUrl != "https://api-test.yieldmanager.com/reports/" {
+		} else if reportUrl != "" && reportUrl != "https://api-test.yieldmanager.com/reports/" {
 			break
 		}
 		println("reportUrl:", reportUrl)
 		println("sleeping ", retries)
 		time.Sleep(30 * time.Second)
-		println("reattempting ", requestViaXml.Body.RequestViaXMLResponse.ReportToken)
+		println("reattempting status", requestViaXml.Body.RequestViaXMLResponse.ReportToken)
 		retries += 1
 	}
 	println("outside loop")
@@ -333,8 +333,10 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 			if retries > 6 {
 				panic(errGet)
 			}
+			fmt.Printf("errGet: %+v\n", errGet)
 			time.Sleep(15 * time.Second)
-			println("reattempting")
+			println("reattempting download ", requestViaXml.Body.RequestViaXMLResponse.ReportToken)
+			retries += 1
 		} else {
 			println("in success clause")
 			defer downloadRes.Body.Close()
@@ -366,6 +368,7 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 		}
 	}
 
+	println("returning from ComplexReport")
 	// fmt.Printf("Header: %+v\n", ioData.Response.Data)
 	return &ioData.Response.Data.RData, &ioData.Response.Data.Header, nil
 }
@@ -391,11 +394,12 @@ func Status(reportToken string) (string, error) {
 	client := NewTimeoutClient(500*time.Millisecond, 10*time.Minute)
 	// client := http.DefaultClient
 	println("Attempting Status check")
-	res, error := client.Do(req)
+	res, err := client.Do(req)
 	println("Status check response back")
-	if error != nil {
+	if err != nil {
 		println("error posting adhoc report")
-		panic(error)
+		// panic(error)
+		return "", err
 	}
 
 	// io.Copy(os.Stdout, res.Body)  
@@ -424,9 +428,9 @@ func Status(reportToken string) (string, error) {
 		return "", readErr
 	}
 
-	error = xml.Unmarshal(p, status)
-	if error != nil {
-		return "", error
+	err = xml.Unmarshal(p, status)
+	if err != nil {
+		return "", err
 	}
 
 	if len(status.Body.Fault.Faultstring) > 0 {
