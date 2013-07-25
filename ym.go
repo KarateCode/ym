@@ -326,7 +326,9 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 	for retries < 6 {
 		client := NewTimeoutClient(500*time.Millisecond, 10*time.Minute)
 		// client := http.DefaultClient
+		println("Attempting download Data")
 		downloadRes, errGet := client.Do(downloadReq)
+		println("Data downloaded")
 		if errGet != nil {
 			if retries > 6 {
 				panic(errGet)
@@ -334,6 +336,7 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 			time.Sleep(15 * time.Second)
 			println("reattempting")
 		} else {
+			println("in success clause")
 			defer downloadRes.Body.Close()
 			// io.Copy(os.Stdout, downloadRes.Body)
 			// return nil, nil
