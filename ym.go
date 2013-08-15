@@ -8,6 +8,7 @@ import (
 	"html"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -360,7 +361,8 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 				println("reattempting")
 				retries += 1
 				if retries >= 6 {
-					panic(errUnmarshall)
+					// panic(errUnmarshall)
+					log.Print("Retries exceeded. Skipping ", requestXml)
 				}
 			} else {
 				break
