@@ -288,11 +288,13 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 	var reportUrl string
 	for retries < 20 {
 		reportUrl, err = Status(requestViaXml.Body.RequestViaXMLResponse.ReportToken)
-		println("back from Status function")
 		if err != nil {
 			// panic(err)
 			fmt.Printf("err: %+v\n", err)
 			// return nil, readErr
+			if strings.Contains(err.Error(), `While beginning to sink the request, an exception occurred. Message: The number of dynamic conversions (advertiser.convs) has exceeded maximum limit of 10000. Please narrow your request filters.' occurred while report system was fulfilling your request.`) {
+				return nil, nil, err
+			}
 		} else if reportUrl != "" && reportUrl != "https://api-test.yieldmanager.com/reports/" {
 			break
 		}
@@ -302,7 +304,6 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 		println("reattempting status", requestViaXml.Body.RequestViaXMLResponse.ReportToken)
 		retries += 1
 	}
-	println("outside loop")
 
 	downloadReq, downloadErr := http.NewRequest("GET", reportUrl, nil)
 	if downloadErr != nil {
@@ -327,9 +328,7 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 	for retries < 6 {
 		client := NewTimeoutClient(500*time.Millisecond, 10*time.Minute)
 		// client := http.DefaultClient
-		println("Attempting download Data")
 		downloadRes, errGet := client.Do(downloadReq)
-		println("Data downloaded")
 		if errGet != nil {
 			if retries > 6 {
 				panic(errGet)
@@ -339,7 +338,6 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 			println("reattempting download ", requestViaXml.Body.RequestViaXMLResponse.ReportToken)
 			retries += 1
 		} else {
-			println("in success clause")
 			defer downloadRes.Body.Close()
 			// io.Copy(os.Stdout, downloadRes.Body)
 			// return nil, nil
@@ -370,7 +368,6 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 		}
 	}
 
-	println("returning from ComplexReport")
 	// fmt.Printf("Header: %+v\n", ioData.Response.Data)
 	return &ioData.Response.Data.RData, &ioData.Response.Data.Header, nil
 }
@@ -395,9 +392,7 @@ func Status(reportToken string) (string, error) {
 	}
 	client := NewTimeoutClient(500*time.Millisecond, 10*time.Minute)
 	// client := http.DefaultClient
-	println("Attempting Status check")
 	res, err := client.Do(req)
-	println("Status check response back")
 	if err != nil {
 		println("error posting adhoc report")
 		// panic(error)
@@ -424,7 +419,6 @@ func Status(reportToken string) (string, error) {
 		}
 	}
 	status := new(Status)
-	println("Status body read")
 	p, readErr := ioutil.ReadAll(res.Body)
 	if readErr != nil {
 		return "", readErr
