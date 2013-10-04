@@ -64,7 +64,7 @@ var Verbose bool = false
 var credentials Auth
 var templatePath string
 var reportRoot string
-var version = "1.35"
+var version = "1.36"
 
 type Auth struct {
 	Login, Password, Env, url string
