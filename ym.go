@@ -197,6 +197,18 @@ func checkConnection() {
 	}
 }
 
+type IoData struct {
+	Response struct {
+		XMLName xml.Name `xml:"RESPONSE"`
+		Data    struct {
+			XMLName xml.Name `xml:"DATA"`
+
+			Header Row        `xml:"HEADER"`
+			RData  ReportData `xml:"ROW"`
+		}
+	}
+}
+
 func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 	checkConnection()
 
@@ -311,18 +323,6 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 		panic(downloadErr)
 	}
 
-	type IoData struct {
-		Response struct {
-			XMLName xml.Name `xml:"RESPONSE"`
-			Data    struct {
-				XMLName xml.Name `xml:"DATA"`
-
-				Header Row        `xml:"HEADER"`
-				RData  ReportData `xml:"ROW"`
-			}
-		}
-	}
-
 	retries = 0
 	ioData := new(IoData)
 	for retries < 6 {
@@ -347,8 +347,15 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 				// return nil, readErr 
 				panic(readErr)
 			}
-
-			errUnmarshall = xml.Unmarshal(p, ioData)
+			// var xmlBody string = string(p)
+			// if bytes.IndexRune(p, '\u0005') > -1 {
+			// 	println(len(p))
+			// 	println("found match")
+			// 	println(bytes.IndexRune(p, '\u0005'))
+			// }
+			// errUnmarshall = xml.Unmarshal(bytes.Replace(p, '\u0005', []byte("")), ioData)
+			errUnmarshall = xml.Unmarshal(bytes.Map(mapOutIllChars, p), ioData)
+			// errUnmarshall = xml.Unmarshal(p, ioData)
 			if errUnmarshall != nil {
 				// return nil, errUnmarshall 
 				println("\n", reportUrl, "\n")
@@ -370,6 +377,13 @@ func ComplexReport(requestXml string) (*ReportData, *Row, error) {
 
 	// fmt.Printf("Header: %+v\n", ioData.Response.Data)
 	return &ioData.Response.Data.RData, &ioData.Response.Data.Header, nil
+}
+
+func mapOutIllChars(r rune) rune {
+	if r == '\u0005' {
+		return -1
+	}
+	return r
 }
 
 func Status(reportToken string) (string, error) {
